@@ -454,7 +454,9 @@ func (p *commitPipeline) prepare(b *Batch, syncWAL bool, noSyncWait bool) (*memT
 		b.commit.Add(2)
 	}
 
+	now1 := time.Now()
 	p.mu.Lock()
+	b.commitStats.PrepareLockWaitDuration = time.Since(now1)
 
 	// Enqueue the batch in the pending queue. Note that while the pending queue
 	// is lock-free, we want the order of batches to be the same as the sequence
@@ -467,7 +469,9 @@ func (p *commitPipeline) prepare(b *Batch, syncWAL bool, noSyncWait bool) (*memT
 	b.setSeqNum(p.env.logSeqNum.Add(n) - n)
 
 	// Write the data to the WAL.
+	now2 := time.Now()
 	mem, err := p.env.write(b, syncWG, syncErr)
+	b.commitStats.PrepareWriteWaitDuration = time.Since(now2)
 
 	p.mu.Unlock()
 
