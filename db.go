@@ -927,7 +927,10 @@ func (d *DB) commitWrite(b *Batch, syncWG *sync.WaitGroup, syncErr *error) (*mem
 		}
 	}
 
+	now := time.Now()
 	d.mu.Lock()
+	now2 := time.Now()
+	b.commitStats.CommitWaitLockWaitDuration = now2.Sub(now)
 
 	var err error
 	if !b.ingestedSSTBatch {
@@ -936,6 +939,8 @@ func (d *DB) commitWrite(b *Batch, syncWG *sync.WaitGroup, syncErr *error) (*mem
 		// write. For the other cases, switch out the memtable if there was not
 		// enough room to store the batch.
 		err = d.makeRoomForWrite(b)
+		now3 := time.Now()
+		b.commitStats.CommitWaitRotateWaitDuration = now3.Sub(now2)
 	}
 
 	if err == nil && !d.opts.DisableWAL {

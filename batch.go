@@ -336,13 +336,15 @@ type BatchCommitStats struct {
 	// one can assume that this is all due to the WAL sync.
 	CommitWaitDuration time.Duration
 
-	PrepareWaitDuration        time.Duration
-	PrepareLockWaitDuration    time.Duration
-	PrepareEnqueueWaitDuration time.Duration
-	PrepareWriteWaitDuration   time.Duration
-	ApplyWaitDuration          time.Duration
-	PublishWaitDuration        time.Duration
-	CommitQueueSemWaitDuration time.Duration
+	PrepareWaitDuration          time.Duration
+	PrepareLockWaitDuration      time.Duration
+	PrepareEnqueueWaitDuration   time.Duration
+	PrepareWriteWaitDuration     time.Duration
+	CommitWaitLockWaitDuration   time.Duration
+	CommitWaitRotateWaitDuration time.Duration
+	ApplyWaitDuration            time.Duration
+	PublishWaitDuration          time.Duration
+	CommitQueueSemWaitDuration   time.Duration
 }
 
 var _ Reader = (*Batch)(nil)

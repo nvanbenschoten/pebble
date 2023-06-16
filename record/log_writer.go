@@ -38,7 +38,7 @@ type syncer interface {
 }
 
 const (
-	syncConcurrencyBits = 12
+	syncConcurrencyBits = 9
 
 	// SyncConcurrency is the maximum number of concurrent sync operations that
 	// can be performed. Note that a sync operation is initiated either by a call
