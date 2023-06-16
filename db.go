@@ -2239,7 +2239,10 @@ func (d *DB) makeRoomForWrite(b *Batch) error {
 		} else {
 			logSeqNum = d.mu.versions.logSeqNum.Load()
 		}
+		now := time.Now()
 		d.rotateMemtable(newLogNum, logSeqNum, immMem)
+		b.commitStats.MemTableRotationDuration += time.Since(now)
+		b.commitStats.MemTableRotationCount++
 		force = false
 	}
 }

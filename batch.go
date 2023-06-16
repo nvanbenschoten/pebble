@@ -342,6 +342,8 @@ type BatchCommitStats struct {
 	PrepareWriteWaitDuration     time.Duration
 	CommitWaitLockWaitDuration   time.Duration
 	CommitWaitRotateWaitDuration time.Duration
+	MemTableRotationDuration     time.Duration
+	MemTableRotationCount        int
 	ApplyWaitDuration            time.Duration
 	PublishWaitDuration          time.Duration
 	CommitQueueSemWaitDuration   time.Duration
