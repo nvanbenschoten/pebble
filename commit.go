@@ -299,7 +299,8 @@ func (p *commitPipeline) Commit(b *Batch, syncWAL bool, noSyncWait bool) error {
 	if syncWAL {
 		p.logSyncQSem <- struct{}{}
 	}
-	b.commitStats.SemaphoreWaitDuration = time.Since(commitStartTime)
+	now2 := time.Now()
+	b.commitStats.SemaphoreWaitDuration = now2.Sub(commitStartTime)
 
 	// Prepare the batch for committing: enqueuing the batch in the pending
 	// queue, determining the batch sequence number and writing the data to the
@@ -315,6 +316,8 @@ func (p *commitPipeline) Commit(b *Batch, syncWAL bool, noSyncWait bool) error {
 		// removing the batch from the pending queue.
 		return err
 	}
+	now3 := time.Now()
+	b.commitStats.PrepareWaitDuration = now3.Sub(now2)
 
 	// Apply the batch to the memtable.
 	if err := p.env.apply(b, mem); err != nil {
@@ -324,11 +327,17 @@ func (p *commitPipeline) Commit(b *Batch, syncWAL bool, noSyncWait bool) error {
 		// removing the batch from the pending queue.
 		return err
 	}
+	now4 := time.Now()
+	b.commitStats.ApplyWaitDuration = now4.Sub(now3)
 
 	// Publish the batch sequence number.
 	p.publish(b)
+	now5 := time.Now()
+	b.commitStats.PublishWaitDuration = now5.Sub(now4)
 
 	<-p.commitQueueSem
+	now6 := time.Now()
+	b.commitStats.CommitQueueSemWaitDuration = now6.Sub(now5)
 
 	if !noSyncWait {
 		// Already waited for commit, so look at the error.
@@ -341,7 +350,7 @@ func (p *commitPipeline) Commit(b *Batch, syncWAL bool, noSyncWait bool) error {
 	// b.commitErr. We will read b.commitErr in Batch.SyncWait after the
 	// LogWriter is done writing.
 
-	b.commitStats.TotalDuration = time.Since(commitStartTime)
+	b.commitStats.TotalDuration = now6.Sub(commitStartTime)
 
 	return err
 }

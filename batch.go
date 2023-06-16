@@ -335,6 +335,11 @@ type BatchCommitStats struct {
 	// duration for the WAL sync (if requested). The former should be tiny and
 	// one can assume that this is all due to the WAL sync.
 	CommitWaitDuration time.Duration
+
+	PrepareWaitDuration        time.Duration
+	ApplyWaitDuration          time.Duration
+	PublishWaitDuration        time.Duration
+	CommitQueueSemWaitDuration time.Duration
 }
 
 var _ Reader = (*Batch)(nil)
