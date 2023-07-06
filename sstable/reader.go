@@ -3311,7 +3311,13 @@ func (r *Reader) readBlock(
 	readHandle objstorage.ReadHandle,
 	stats *base.InternalIteratorStats,
 ) (handle cache.Handle, _ error) {
-	if h := r.opts.Cache.Get(r.cacheID, r.fileNum, bh.Offset); h.Get() != nil {
+	cacheGetStartTime := time.Now()
+	h := r.opts.Cache.Get(r.cacheID, r.fileNum, bh.Offset)
+	cacheGetDuration := time.Since(cacheGetStartTime)
+	if cacheGetDuration >= 1*time.Millisecond && r.opts.LoggerAndTracer.IsTracingEnabled(ctx) {
+		r.opts.LoggerAndTracer.Eventf(ctx, "cache get took %s", cacheGetDuration.String())
+	}
+	if h.Get() != nil {
 		if readHandle != nil {
 			readHandle.RecordCacheHit(ctx, int64(bh.Offset), int64(bh.Length+blockTrailerLen))
 		}
@@ -3390,7 +3396,12 @@ func (r *Reader) readBlock(
 		stats.BlockBytes += bh.Length
 	}
 
-	h := r.opts.Cache.Set(r.cacheID, r.fileNum, bh.Offset, v)
+	cacheSetStartTime := time.Now()
+	h = r.opts.Cache.Set(r.cacheID, r.fileNum, bh.Offset, v)
+	cacheSetDuration := time.Since(cacheSetStartTime)
+	if cacheSetDuration >= 1*time.Millisecond && r.opts.LoggerAndTracer.IsTracingEnabled(ctx) {
+		r.opts.LoggerAndTracer.Eventf(ctx, "cache set took %s", cacheSetDuration.String())
+	}
 	return h, nil
 }
 
