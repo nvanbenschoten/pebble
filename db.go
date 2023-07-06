@@ -74,6 +74,10 @@ type Reader interface {
 	// SeekLT, First or Last.
 	NewIter(o *IterOptions) *Iterator
 
+	// NewIterWithContext is like NewIter, and additionally accepts a context for
+	// tracing.
+	NewIterWithContext(ctx context.Context, o *IterOptions) *Iterator
+
 	// Close closes the Reader. It may or may not close any underlying io.Reader
 	// or io.Writer, depending on how the DB was created.
 	//
