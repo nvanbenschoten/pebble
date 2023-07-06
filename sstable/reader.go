@@ -3339,7 +3339,7 @@ func (r *Reader) readBlock(
 	}
 	readDuration := time.Since(readStartTime)
 	// TODO(sumeer): should the threshold be configurable.
-	const slowReadTracingThreshold = 5 * time.Millisecond
+	const slowReadTracingThreshold = 1 * time.Millisecond
 	// The invariants.Enabled path is for deterministic testing.
 	if invariants.Enabled {
 		readDuration = slowReadTracingThreshold
@@ -3367,7 +3367,9 @@ func (r *Reader) readBlock(
 	b = b[:bh.Length]
 	v.Truncate(len(b))
 
+	decompressStartTime := time.Now()
 	decoded, err := decompressBlock(r.opts.Cache, typ, b)
+	decompressDuration := time.Since(decompressStartTime)
 	if decoded != nil {
 		r.opts.Cache.Free(v)
 		v = decoded
@@ -3375,6 +3377,9 @@ func (r *Reader) readBlock(
 	} else if err != nil {
 		r.opts.Cache.Free(v)
 		return cache.Handle{}, err
+	}
+	if decompressDuration >= 1*time.Millisecond && r.opts.LoggerAndTracer.IsTracingEnabled(ctx) {
+		r.opts.LoggerAndTracer.Eventf(ctx, "decompress took %s", decompressDuration.String())
 	}
 
 	if transform != nil {
