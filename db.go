@@ -1038,6 +1038,7 @@ func (d *DB) newIter(ctx context.Context, batch *Batch, s *Snapshot, o *IterOpti
 		dbi.processBounds(o.LowerBound, o.UpperBound)
 	}
 	dbi.opts.logger = d.opts.Logger
+	dbi.opts.loggerAndTracer = d.opts.LoggerAndTracer
 	if d.opts.private.disableLazyCombinedIteration {
 		dbi.opts.disableLazyCombinedIteration = true
 	}
@@ -1234,6 +1235,7 @@ func (d *DB) newInternalIter(s *Snapshot, o *scanInternalOptions) *scanInternalI
 		dbi.opts = *o
 	}
 	dbi.opts.logger = d.opts.Logger
+	dbi.opts.loggerAndTracer = d.opts.LoggerAndTracer
 	if d.opts.private.disableLazyCombinedIteration {
 		dbi.opts.disableLazyCombinedIteration = true
 	}

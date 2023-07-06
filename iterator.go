@@ -9,6 +9,7 @@ import (
 	"context"
 	"io"
 	"sync"
+	"time"
 	"unsafe"
 
 	"github.com/cockroachdb/errors"
@@ -1326,6 +1327,7 @@ func (i *Iterator) SeekGEWithLimit(key []byte, limit []byte) IterValidityState {
 // ImmediateSuccessor method. For example, a SeekPrefixGE("a@9") call with the
 // prefix "a" will truncate range key bounds to [a,ImmediateSuccessor(a)].
 func (i *Iterator) SeekPrefixGE(key []byte) bool {
+	startTime := time.Now()
 	if i.rangeKey != nil {
 		// NB: Check Valid() before clearing requiresReposition.
 		i.rangeKey.prevPosHadRangeKey = i.rangeKey.hasRangeKey && i.Valid()
@@ -1424,6 +1426,10 @@ func (i *Iterator) SeekPrefixGE(key []byte) bool {
 	i.maybeSampleRead()
 	if i.Error() == nil {
 		i.lastPositioningOp = seekPrefixGELastPositioningOp
+	}
+	duration := time.Since(startTime)
+	if duration >= 3*time.Millisecond && i.opts.loggerAndTracer.IsTracingEnabled(i.ctx) {
+		i.opts.loggerAndTracer.Eventf(i.ctx, "seekPrefixGE took %s", duration.String())
 	}
 	return i.iterValidityState == IterValid
 }

@@ -178,7 +178,8 @@ type IterOptions struct {
 
 	// Internal options.
 
-	logger Logger
+	logger          Logger
+	loggerAndTracer LoggerAndTracer
 	// Level corresponding to this file. Only passed in if constructed by a
 	// levelIter.
 	level manifest.Level
