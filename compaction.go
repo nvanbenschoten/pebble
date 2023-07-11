@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"runtime"
 	"runtime/pprof"
 	"sort"
 	"strings"
@@ -3077,6 +3078,8 @@ func (d *DB) runCompaction(
 	}
 	splitter := &splitterGroup{cmp: c.cmp, splitters: outputSplitters}
 
+	keys := 0
+
 	// Each outer loop iteration produces one output file. An iteration that
 	// produces a file containing point keys (and optionally range tombstones)
 	// guarantees that the input iterator advanced. An iteration that produces
@@ -3113,6 +3116,11 @@ func (d *DB) runCompaction(
 		for ; key != nil; key, val = iter.Next() {
 			if split := splitter.shouldSplitBefore(key, tw); split == splitNow {
 				break
+			}
+
+			keys++
+			if keys%100 == 0 {
+				runtime.Gosched()
 			}
 
 			switch key.Kind() {
