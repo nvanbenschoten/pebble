@@ -233,7 +233,7 @@ func (it *Iterator) Prev() *base.InternalKV {
 
 // value returns the value at the current position.
 func (it *Iterator) value() []byte {
-	return it.nd.getValue(it.list.arena)
+	return it.nd.getValue(it.list.valueArena)
 }
 
 // SetBounds sets the lower and upper bounds for the iterator. Note that the

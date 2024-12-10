@@ -45,11 +45,11 @@ func (l *links) init(prevOffset, nextOffset uint32) {
 
 type node struct {
 	// Immutable fields, so no need to lock to access key.
-	keyOffset  uint32
-	keySize    uint32
-	keyTrailer base.InternalKeyTrailer
-	valueSize  uint32
-	allocSize  uint32
+	keyOffset   uint32
+	keySize     uint32
+	keyTrailer  base.InternalKeyTrailer
+	valueOffset uint32
+	valueSize   uint32
 
 	// Most nodes do not need to use the full height of the tower, since the
 	// probability of each successive level decreases exponentially. Because
@@ -62,7 +62,7 @@ type node struct {
 }
 
 func newNode(
-	arena *Arena, height uint32, key base.InternalKey, value []byte,
+	arena, valueArena *Arena, height uint32, key base.InternalKey, value []byte,
 ) (nd *node, err error) {
 	if height < 1 || height > maxHeight {
 		panic("height cannot be less than one or greater than the max height")
@@ -79,32 +79,45 @@ func newNode(
 		panic("combined key and value size is too large")
 	}
 
-	nd, err = newRawNode(arena, height, uint32(keySize), uint32(valueSize))
+	nd, err = newRawNode(arena, valueArena, height, uint32(keySize), uint32(valueSize))
 	if err != nil {
 		return
 	}
 	nd.keyTrailer = key.Trailer
 	copy(nd.getKeyBytes(arena), key.UserKey)
-	copy(nd.getValue(arena), value)
+	copy(nd.getValue(valueArena), value)
 	return
 }
 
-func newRawNode(arena *Arena, height uint32, keySize, valueSize uint32) (nd *node, err error) {
+func newRawNode(arena, valueArena *Arena, height uint32, keySize, valueSize uint32) (nd *node, err error) {
 	// Compute the amount of the tower that will never be used, since the height
 	// is less than maxHeight.
 	unusedSize := uint32((maxHeight - int(height)) * linksSize)
 	nodeSize := uint32(maxNodeSize) - unusedSize
 
-	nodeOffset, allocSize, err := arena.alloc(nodeSize+keySize+valueSize, nodeAlignment, unusedSize)
-	if err != nil {
-		return
+	var nodeOffset, valueOffset uint32
+	if arena == valueArena || valueSize == 0 {
+		nodeOffset, _, err = arena.alloc(nodeSize+keySize+valueSize, nodeAlignment, unusedSize)
+		valueOffset = nodeOffset + nodeSize + keySize
+		if err != nil {
+			return
+		}
+	} else {
+		nodeOffset, _, err = arena.alloc(nodeSize+keySize, nodeAlignment, unusedSize)
+		if err != nil {
+			return
+		}
+		valueOffset, _, err = valueArena.alloc(valueSize, 1, 0)
+		if err != nil {
+			return
+		}
 	}
 
 	nd = (*node)(arena.getPointer(nodeOffset))
 	nd.keyOffset = nodeOffset + nodeSize
 	nd.keySize = keySize
+	nd.valueOffset = valueOffset
 	nd.valueSize = valueSize
-	nd.allocSize = allocSize
 	return
 }
 
@@ -113,7 +126,7 @@ func (n *node) getKeyBytes(arena *Arena) []byte {
 }
 
 func (n *node) getValue(arena *Arena) []byte {
-	return arena.getBytes(n.keyOffset+n.keySize, uint32(n.valueSize))
+	return arena.getBytes(n.valueOffset, n.valueSize)
 }
 
 func (n *node) nextOffset(h int) uint32 {

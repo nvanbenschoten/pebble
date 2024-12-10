@@ -75,11 +75,12 @@ var ErrRecordExists = errors.New("record with this key already exists")
 // is up to the user to process these shadow entries and tombstones
 // appropriately during retrieval.
 type Skiplist struct {
-	arena  *Arena
-	cmp    base.Compare
-	head   *node
-	tail   *node
-	height atomic.Uint32 // Current height. 1 <= height <= maxHeight. CAS.
+	arena      *Arena
+	valueArena *Arena
+	cmp        base.Compare
+	head       *node
+	tail       *node
+	height     atomic.Uint32 // Current height. 1 <= height <= maxHeight. CAS.
 
 	// If set to true by tests, then extra delays are added to make it easier to
 	// detect unusual race conditions.
@@ -122,14 +123,18 @@ func NewSkiplist(arena *Arena, cmp base.Compare) *Skiplist {
 
 // Reset the skiplist to empty and re-initialize.
 func (s *Skiplist) Reset(arena *Arena, cmp base.Compare) {
+	s.ResetWithValueArena(arena, arena, cmp)
+}
+
+func (s *Skiplist) ResetWithValueArena(arena, valueArena *Arena, cmp base.Compare) {
 	// Allocate head and tail nodes.
-	head, err := newRawNode(arena, maxHeight, 0, 0)
+	head, err := newRawNode(arena, valueArena, maxHeight, 0, 0)
 	if err != nil {
 		panic("arenaSize is not large enough to hold the head node")
 	}
 	head.keyOffset = 0
 
-	tail, err := newRawNode(arena, maxHeight, 0, 0)
+	tail, err := newRawNode(arena, valueArena, maxHeight, 0, 0)
 	if err != nil {
 		panic("arenaSize is not large enough to hold the tail node")
 	}
@@ -144,10 +149,11 @@ func (s *Skiplist) Reset(arena *Arena, cmp base.Compare) {
 	}
 
 	*s = Skiplist{
-		arena: arena,
-		cmp:   cmp,
-		head:  head,
-		tail:  tail,
+		arena:      arena,
+		valueArena: valueArena,
+		cmp:        cmp,
+		head:       head,
+		tail:       tail,
 	}
 	s.height.Store(1)
 }
@@ -159,8 +165,14 @@ func (s *Skiplist) Height() uint32 { return s.height.Load() }
 // Arena returns the arena backing this skiplist.
 func (s *Skiplist) Arena() *Arena { return s.arena }
 
+// ValueArena returns the arena backing this skiplist.
+func (s *Skiplist) ValueArena() *Arena { return s.valueArena }
+
 // Size returns the number of bytes that have allocated from the arena.
 func (s *Skiplist) Size() uint32 { return s.arena.Size() }
+
+// ValueSize returns the number of bytes that have allocated from the arena.
+func (s *Skiplist) ValueSize() uint32 { return s.valueArena.Size() }
 
 // Add adds a new key if it does not yet exist. If the key already exists, then
 // Add returns ErrRecordExists. If there isn't enough room in the arena, then
@@ -317,7 +329,7 @@ func (s *Skiplist) newNode(
 	key base.InternalKey, value []byte,
 ) (nd *node, height uint32, err error) {
 	height = s.randomHeight()
-	nd, err = newNode(s.arena, height, key, value)
+	nd, err = newNode(s.arena, s.valueArena, height, key, value)
 	if err != nil {
 		return
 	}

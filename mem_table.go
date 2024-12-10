@@ -155,11 +155,19 @@ func (m *memTable) init(opts memTableOptions) {
 		m.arenaBuf = make([]byte, opts.size)
 	}
 
-	arena := arenaskl.NewArena(m.arenaBuf)
-	m.skl.Reset(arena, m.cmp)
-	m.rangeDelSkl.Reset(arena, m.cmp)
-	m.rangeKeySkl.Reset(arena, m.cmp)
-	m.reserved = arena.Size()
+	var arenaKeys, arenaValues *arenaskl.Arena
+	if len(m.arenaBuf) < 1<<13 /* 8 KB */ {
+		arenaKeys = arenaskl.NewArena(m.arenaBuf)
+		arenaValues = arenaKeys
+	} else {
+		arenaKeys = arenaskl.NewArena(m.arenaBuf[:len(m.arenaBuf)/2])
+		arenaValues = arenaskl.NewArena(m.arenaBuf[len(m.arenaBuf)/2:])
+	}
+
+	m.skl.ResetWithValueArena(arenaKeys, arenaValues, m.cmp)
+	m.rangeDelSkl.Reset(arenaKeys, m.cmp)
+	m.rangeKeySkl.Reset(arenaKeys, m.cmp)
+	m.reserved = arenaKeys.Size()
 }
 
 func (m *memTable) writerRef() {
@@ -192,6 +200,10 @@ func (m *memTable) readyForFlush() bool {
 // writerUnref() after the batch has been applied.
 func (m *memTable) prepare(batch *Batch) error {
 	avail := m.availBytes()
+	if batch.memTableSize > uint64(avail) {
+		return arenaskl.ErrArenaFull
+	}
+	avail = m.availBytesValue()
 	if batch.memTableSize > uint64(avail) {
 		return arenaskl.ErrArenaFull
 	}
@@ -304,19 +316,24 @@ func (m *memTable) availBytes() uint32 {
 	return a.Capacity() - m.reserved
 }
 
+func (m *memTable) availBytesValue() uint32 {
+	va := m.skl.ValueArena()
+	return va.Capacity() - va.Size()
+}
+
 // inuseBytes is part of the flushable interface.
 func (m *memTable) inuseBytes() uint64 {
-	return uint64(m.skl.Size() - memTableEmptySize)
+	return uint64((m.skl.Size() + m.skl.ValueSize()) - memTableEmptySize)
 }
 
 // totalBytes is part of the flushable interface.
 func (m *memTable) totalBytes() uint64 {
-	return uint64(m.skl.Arena().Capacity())
+	return uint64(m.skl.Arena().Capacity()) + uint64(m.skl.ValueArena().Capacity())
 }
 
 // empty returns whether the MemTable has no key/value pairs.
 func (m *memTable) empty() bool {
-	return m.skl.Size() == memTableEmptySize
+	return (m.skl.Size() + m.skl.ValueSize()) == memTableEmptySize
 }
 
 // computePossibleOverlaps is part of the flushable interface.
